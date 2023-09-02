@@ -24,8 +24,8 @@ import javax.swing.JScrollBar;
 
 public class ControlFrame extends JFrame {
 
-    private static final int DEFAULT_IMMORTAL_HEALTH = 100;
-    private static final int DEFAULT_DAMAGE_VALUE = 10;
+    private static final int DEFAULT_IMMORTAL_HEALTH = 10;
+    private static final int DEFAULT_DAMAGE_VALUE = 2;
 
     private JPanel contentPane;
 
@@ -88,13 +88,18 @@ public class ControlFrame extends JFrame {
         btnPauseAndCheck.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
 
-                /*
-				 * COMPLETAR
-                 */
+            	
                 int sum = 0;
-                for (Immortal im : immortals) {
-                    sum += im.getHealth();
-                }
+                
+                
+                //ARREGLAR
+                
+				for (int i = 0; i < immortals.size(); i++) {
+					sum += immortals.get(i).getHealth();
+					immortals.get(i).pauseFight();
+					
+
+				}
 
                 statisticsLabel.setText("<html>"+immortals.toString()+"<br>Health sum:"+ sum);
                 

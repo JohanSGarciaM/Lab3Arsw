@@ -13,4 +13,5 @@ public interface ImmortalUpdateReportCallback {
 
     public void processReport(String report);
     
+    
 }
