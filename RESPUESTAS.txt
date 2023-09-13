@@ -1,0 +1,21 @@
+Laboratorio 3
+
+Control de hilos con wait/notify productor/Consumidor
+
+
+
+1. 
+Con el analisis del funcionamiento del código, podemos evidenciar que la clase responsable del uso de CPU es "Producer", debido 
+a que es la encargada del procesamiento de más procesos como (generar un número aleatorio, sumar este número a una variable, 
+añadir a una cola, etc) a comparación de la clase "Consumer" que se encarga de consultar a una cola y extraer un elemento.
+
+2. 
+Para mejorar el rendimiento de la CPU se tiene en cuenta que el consumidor debe esperar siempre a que existan
+elementos dentro de la pila del productor y una posible solución a esto es utilizar un wait en esta clase con la pila como objeto lock y
+un notifyAll una vez que el consumidor haya colocado algún elemento dentro de esta cola.
+
+3. 
+Para hacer que el productor sea rápido y el consumidor lento, esta vez se duerme el consumidor por un segundo cada vez
+que consume y ahora el productor no duerme después de agregar un producto a la cola. Para respetar los límites planteamos
+un wait cuando se cumple que la longitud de la cola es mayor al stock que es el límite y un notifyAll después de que se
+quite un elemento de esta cola en la clase productor.

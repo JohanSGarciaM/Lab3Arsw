@@ -2,100 +2,162 @@ package edu.eci.arsw.highlandersim;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Immortal extends Thread {
 
-    private ImmortalUpdateReportCallback updateCallback=null;
-    
-    private int health;
-    
-    private int defaultDamageValue;
+	private ImmortalUpdateReportCallback updateCallback = null;
 
-    private final List<Immortal> immortalsPopulation;
+	private int health;
 
-    private final String name;
+	private int defaultDamageValue;
 
-    private final Random r = new Random(System.currentTimeMillis());
-    
-    private boolean pause = false;
+	private final List<Immortal> immortalsPopulation;
 
+	private final String name;
 
-    public Immortal(String name, List<Immortal> immortalsPopulation, int health, int defaultDamageValue, ImmortalUpdateReportCallback ucb) {
-        super(name);
-        this.updateCallback=ucb;
-        this.name = name;
-        this.immortalsPopulation = immortalsPopulation;
-        this.health = health;
-        this.defaultDamageValue=defaultDamageValue;
-    }
+	private final Random r = new Random(System.currentTimeMillis());
 
-    public void run() {
+	private AtomicBoolean pause;
 
-        while (true) {
-            Immortal im;
+	private AtomicInteger sleeped;
 
-            int myIndex = immortalsPopulation.indexOf(this);
+	private final Object childObject;
 
-            int nextFighterIndex = r.nextInt(immortalsPopulation.size());
+	private final Object chief;
 
-            //avoid self-fight
-            if (nextFighterIndex == myIndex) {
-                nextFighterIndex = ((nextFighterIndex + 1) % immortalsPopulation.size());
-            }
+	private final int siblings;
 
-            im = immortalsPopulation.get(nextFighterIndex);
-            synchronized(this) {
-            	while(pause) {
-            		System.out.println("SE PAUSO MI PAPA");
-		            try {
-		                this.wait();
-		            } catch (InterruptedException e) {
-		                e.printStackTrace();
-		            }
-            	}
-            	this.fight(im);
-            	try {
-					Thread.sleep(10);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+	private boolean alive;
+
+	private AtomicBoolean end;
+
+	public Immortal(String name, List<Immortal> immortalsPopulation, int health, int defaultDamageValue,
+			ImmortalUpdateReportCallback ucb, Object chief, AtomicInteger sleeped, AtomicBoolean pause,
+			Object childObject, int siblings, boolean alive, AtomicBoolean end) {
+		super(name);
+		this.updateCallback = ucb;
+		this.name = name;
+		this.immortalsPopulation = immortalsPopulation;
+		this.health = health;
+		this.defaultDamageValue = defaultDamageValue;
+		this.childObject = childObject;
+		this.chief = chief;
+		this.siblings = siblings;
+		this.sleeped = sleeped;
+		this.alive = alive;
+		this.end = end;
+		this.pause = pause;
+
+	}
+
+	public void run() {
+
+		while (alive && !end.get()) {
+			while (pause.get()) {
+				synchronized (sleeped) {
+					sleeped.getAndAdd(1);
 				}
-            
-            }
+				if (sleeped.get() < siblings) {
+					synchronized (childObject) {
+						try {
+							childObject.wait();
+						} catch (InterruptedException e) {
+							throw new RuntimeException(e);
+						}
+					}
+				} else {
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						throw new RuntimeException(e);
+					}
+					synchronized (chief) {
+						chief.notify();
+						sleeped.set(0);
+					}
+					synchronized (childObject) {
+						try {
+							childObject.wait();
+						} catch (InterruptedException e) {
+							throw new RuntimeException(e);
+						}
+					}
+				}
 
-        }
+			}
+			Immortal im;
 
-    }
+			int myIndex = immortalsPopulation.indexOf(this);
 
-    public void fight(Immortal i2) {
+			int nextFighterIndex = r.nextInt(immortalsPopulation.size());
 
-        if (i2.getHealth() > 0) {
-            i2.changeHealth(i2.getHealth() - defaultDamageValue);
-            this.health += defaultDamageValue;
-            updateCallback.processReport("Fight: " + this + " vs " + i2+"\n");
-        } else {
-            updateCallback.processReport(this + " says:" + i2 + " is already dead!\n");
-        }
+			// avoid self-fight
+			if (nextFighterIndex == myIndex) {
+				nextFighterIndex = ((nextFighterIndex + 1) % immortalsPopulation.size());
+			}
 
-    }
-    
-    synchronized void pauseFight() {
-    	this.pause = true;
-    	
-    }
+			im = immortalsPopulation.get(nextFighterIndex);
 
-    public void changeHealth(int v) {
-        health = v;
-    }
+			this.fight(im);
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
 
-    public int getHealth() {
-        return health;
-    }
+	public void fight(Immortal i2) {
 
-    @Override
-    public String toString() {
+		if (i2.hashCode() > this.hashCode()) {
+			synchronized (this) {
+				synchronized (i2) {
+					if (i2.getHealth() > 0) {
+						i2.changeHealth(i2.getHealth() - defaultDamageValue);
+						this.health += defaultDamageValue;
+						updateCallback.processReport("Fight: " + this + " vs " + i2 + "\n");
+						if (i2.getHealth() == 0) {
+							i2.setAlive(false);
+						}
+					} else {
+						updateCallback.processReport(this + " says: " + i2 + "is already dead!\n");
+					}
+				}
+			}
+		} else {
+			synchronized (i2) {
+				synchronized (this) {
+					if (i2.getHealth() > 0) {
+						i2.changeHealth(i2.getHealth() - defaultDamageValue);
+						this.health += defaultDamageValue;
+						updateCallback.processReport("Fight: " + this + " vs " + i2 + "\n");
+					} else {
+						updateCallback.processReport(this + " says:" + i2 + " is already dead!\n");
+					}
+				}
+			}
+		}
+	}
 
-        return name + "[" + health + "]";
-    }
+	public void setAlive(boolean alive) {
+		this.alive = alive;
+	}
+
+	public void changeHealth(int v) {
+		health = v;
+	}
+
+	public int getHealth() {
+		return health;
+	}
+
+	@Override
+	public String toString() {
+
+		return name + "[" + health + "]";
+	}
 
 }
